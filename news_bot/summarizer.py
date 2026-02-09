@@ -12,7 +12,8 @@ Quy tac:
 2. Neu so lieu cu the neu co (%, ti le, gia, chi so)
 3. Khong dung emoji, khong tieu de, khong phan loai
 4. Neu tin bang tieng Anh, dich sang tieng Viet
-5. Neu tin khong quan trong (quang cao, su kien nho, tin cu, noi dung chung chung khong co so lieu), tra loi dung 1 chu: SKIP"""
+5. Chi giu tin CO GIA TRI voi nha dau tu: thay doi chinh sach, bien dong gia lon, so lieu kinh te, ket qua kinh doanh, M&A, IPO
+6. Tra loi SKIP neu tin thuoc loai: quang cao, su kien nho, tin cu, y kien ca nhan, noi dung chung chung khong co so lieu, tin giai tri, lifestyle"""
 
 
 class AISummarizer:

@@ -10,22 +10,27 @@ from .config import (
 
 logger = logging.getLogger(__name__)
 
-# Keywords for each category (lowercase)
-_VN_STOCK_KEYWORDS = [
-    "vnindex", "vn-index", "vn index", "hnx", "upcom", "hose",
-    "chung khoan", "chứng khoán", "co phieu", "cổ phiếu",
-    "san chung khoan", "sàn chứng khoán",
-    "vnexpress", "cafef", "vietstock", "vn30", "hsx",
-    "thanh khoan", "thanh khoản", "margin",
-    "doanh nghiep", "doanh nghiệp",
-    "ngan hang", "ngân hàng", "sbv", "nhnn",
-    "bat dong san", "bất động sản", "bds",
-    "vi mo", "vĩ mô", "gdp", "cpi",
-    "vingroup", "vin", "fpt", "hpg", "msn", "mbb", "vcb", "tcb",
-    "bidv", "vietcombank", "vietinbank", "techcombank", "vpbank",
-    "hoa phat", "hoà phát", "masan", "novaland", "vinamilk",
-    "tp ho chi minh", "hà nội", "ha noi", "ho chi minh",
+# === HIGH-CONFIDENCE keywords (1 match is enough) ===
+_VN_STOCK_STRONG = [
+    "vnindex", "vn-index", "vn index", "vn30", "hnx", "upcom", "hose", "hsx",
+    "chung khoan", "chứng khoán", "cổ phiếu", "co phieu",
+    "sàn chứng khoán", "san chung khoan",
+    "vietcombank", "vietinbank", "techcombank", "vpbank", "bidv",
+    "vingroup", "vinamilk", "hoa phat", "hoà phát", "masan", "novaland",
+    "vàng sjc", "vang sjc",
+    "nhnn", "ngan hang nha nuoc", "ngân hàng nhà nước",
+]
+
+# === MEDIUM-CONFIDENCE keywords (need 2+ matches or VN source) ===
+_VN_STOCK_MEDIUM = [
     "viet nam", "việt nam", "vietnam",
+    "ngan hang", "ngân hàng",
+    "bat dong san", "bất động sản",
+    "vi mo", "vĩ mô",
+    "doanh nghiep", "doanh nghiệp",
+    "thanh khoan", "thanh khoản",
+    "fpt", "hpg", "msn", "mbb", "vcb", "tcb",
+    "cafef", "vietstock",
 ]
 
 _VN_STOCK_SOURCES = [
@@ -35,15 +40,15 @@ _VN_STOCK_SOURCES = [
     "vneconomy",
 ]
 
-_CRYPTO_KEYWORDS = [
+_CRYPTO_STRONG = [
     "bitcoin", "btc", "ethereum", "eth", "crypto", "cryptocurrency",
     "blockchain", "defi", "nft", "web3", "altcoin", "stablecoin",
-    "binance", "coinbase", "solana", "sol", "xrp", "ripple",
-    "dogecoin", "doge", "cardano", "ada", "polkadot", "dot",
-    "avalanche", "avax", "polygon", "matic", "tether", "usdt",
-    "usdc", "token", "mining", "halving", "memecoin", "meme coin",
-    "sec crypto", "spot etf", "bitcoin etf", "ethereum etf",
-    "tiền điện tử", "tien dien tu", "tiền mã hóa", "tien ma hoa",
+    "binance", "coinbase", "solana", "xrp", "ripple",
+    "dogecoin", "doge", "cardano", "polkadot",
+    "tether", "usdt", "usdc",
+    "halving", "memecoin", "meme coin",
+    "bitcoin etf", "ethereum etf", "spot etf",
+    "tiền điện tử", "tien dien tu", "tiền mã hóa",
 ]
 
 _CRYPTO_SOURCES = [
@@ -51,15 +56,20 @@ _CRYPTO_SOURCES = [
     "bitcoin magazine", "wublockchain",
 ]
 
-_GOLD_KEYWORDS = [
-    "gold", "vàng", "vang", "xau", "xauusd", "xau/usd",
+_GOLD_STRONG = [
     "gold price", "gia vang", "giá vàng",
-    "sjc", "pnj", "doji", "gold bar", "gold futures",
-    "precious metal", "kim loại quý", "kim loai quy",
-    "gold spot", "comex gold", "gold etf",
-    "vang sjc", "vàng sjc", "vang 9999", "vàng 9999",
-    "vang nhan", "vàng nhẫn",
+    "xauusd", "xau/usd",
+    "sjc", "pnj", "doji",
+    "gold futures", "gold spot", "comex gold", "gold etf",
+    "vàng 9999", "vang 9999", "vàng nhẫn", "vang nhan",
+    "kim loại quý", "kim loai quy",
     "kitco", "bullion",
+]
+
+# "gold" alone needs 2+ context keywords to qualify
+_GOLD_MEDIUM = [
+    "gold", "vàng", "vang", "xau",
+    "gold bar", "precious metal",
 ]
 
 _GOLD_SOURCES = [
@@ -70,40 +80,51 @@ _GOLD_SOURCES = [
 def categorize(title: str, content: str, source: str) -> str:
     """Classify a news item into one of the 4 categories.
 
+    Uses strong/medium keyword tiers to reduce miscategorization.
     Priority: VN Stock > Crypto > Gold > World Finance (fallback).
     """
     text = f"{title} {content}".lower()
     source_lower = source.lower()
 
-    # --- Vietnam Stock Market ---
-    # Source-based (high confidence)
+    # --- Source-based routing (highest confidence) ---
+    # VN sources -> VN Stock (unless clearly crypto/gold)
     for src in _VN_STOCK_SOURCES:
         if src in source_lower:
-            # But check if it's actually about crypto or gold
-            if _matches_keywords(text, _CRYPTO_KEYWORDS, threshold=2):
+            if _matches_keywords(text, _CRYPTO_STRONG, threshold=2):
                 return CATEGORY_CRYPTO
-            if _matches_keywords(text, _GOLD_KEYWORDS, threshold=2):
+            if _matches_keywords(text, _GOLD_STRONG, threshold=1):
                 return CATEGORY_GOLD
             return CATEGORY_VN_STOCK
 
-    # Keyword-based
-    if _matches_keywords(text, _VN_STOCK_KEYWORDS, threshold=1):
-        return CATEGORY_VN_STOCK
-
-    # --- Crypto ---
+    # Crypto sources -> Crypto
     for src in _CRYPTO_SOURCES:
         if src in source_lower:
             return CATEGORY_CRYPTO
 
-    if _matches_keywords(text, _CRYPTO_KEYWORDS, threshold=1):
-        return CATEGORY_CRYPTO
-
-    # --- Gold ---
+    # Gold sources -> Gold
     for src in _GOLD_SOURCES:
         if src in source_lower:
             return CATEGORY_GOLD
 
-    if _matches_keywords(text, _GOLD_KEYWORDS, threshold=1):
+    # --- Keyword-based routing ---
+    # Strong keywords: 1 match is enough
+    if _matches_keywords(text, _VN_STOCK_STRONG, threshold=1):
+        # Double-check not primarily crypto/gold
+        if _matches_keywords(text, _CRYPTO_STRONG, threshold=2):
+            return CATEGORY_CRYPTO
+        return CATEGORY_VN_STOCK
+
+    if _matches_keywords(text, _CRYPTO_STRONG, threshold=1):
+        return CATEGORY_CRYPTO
+
+    if _matches_keywords(text, _GOLD_STRONG, threshold=1):
+        return CATEGORY_GOLD
+
+    # Medium keywords: need 2+ matches
+    if _matches_keywords(text, _VN_STOCK_MEDIUM, threshold=2):
+        return CATEGORY_VN_STOCK
+
+    if _matches_keywords(text, _GOLD_MEDIUM, threshold=2):
         return CATEGORY_GOLD
 
     # --- Fallback: World Finance ---

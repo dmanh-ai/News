@@ -27,7 +27,7 @@ from .summarizer import AISummarizer
 from .telegram_bot import TelegramSender
 from .database import NewsDatabase
 from .daily_report import DailyReporter
-from .config import config, CATEGORY_LABELS
+from .config import config, CATEGORY_LABELS, DAILY_NEWS_LIMIT
 
 # Logging setup
 logging.basicConfig(
@@ -100,6 +100,18 @@ class NewsSummaryBot:
 
         if not chat_id:
             logger.debug("No chat ID for category %s, skipping: %s", category, item.title[:50])
+            return False
+
+        # Check daily limit per category
+        sent_today = self.db.count_today_sent(category)
+        if sent_today >= DAILY_NEWS_LIMIT:
+            logger.debug("Daily limit (%d) reached for %s, skipping: %s",
+                         DAILY_NEWS_LIMIT, category, item.title[:50])
+            self.db.mark_processed(
+                news_id=news_id, source=item.source,
+                title=item.title, url=item.url,
+                summary="", category=category,
+            )
             return False
 
         # Summarize with Haiku
