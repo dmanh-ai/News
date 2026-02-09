@@ -27,7 +27,7 @@ from .summarizer import AISummarizer
 from .telegram_bot import TelegramSender
 from .database import NewsDatabase
 from .daily_report import DailyReporter
-from .config import config, CATEGORY_LABELS, DAILY_NEWS_LIMIT
+from .config import config, CATEGORY_LABELS, DAILY_NEWS_LIMIT, HOURLY_SLOT_LIMIT, HOURLY_SLOT_HOURS
 
 # Logging setup
 logging.basicConfig(
@@ -102,7 +102,7 @@ class NewsSummaryBot:
             logger.debug("No chat ID for category %s, skipping: %s", category, item.title[:50])
             return False
 
-        # Check daily limit per category
+        # Check daily limit per category (max 20/day)
         sent_today = self.db.count_today_sent(category)
         if sent_today >= DAILY_NEWS_LIMIT:
             logger.debug("Daily limit (%d) reached for %s, skipping: %s",
@@ -114,6 +114,14 @@ class NewsSummaryBot:
             )
             return False
 
+        # Check hourly slot limit (max 3 per 2 hours to spread news evenly)
+        sent_recent = self.db.count_recent_sent(category, hours=HOURLY_SLOT_HOURS)
+        if sent_recent >= HOURLY_SLOT_LIMIT:
+            logger.debug("Hourly slot limit (%d/%dh) reached for %s, deferring: %s",
+                         HOURLY_SLOT_LIMIT, HOURLY_SLOT_HOURS, category, item.title[:50])
+            # Don't mark as processed - will retry next cycle
+            return False
+
         # Summarize with Haiku
         summary = await self.summarizer.summarize(
             title=item.title,
@@ -122,7 +130,7 @@ class NewsSummaryBot:
         )
 
         # Filter out unimportant news (AI returns "SKIP")
-        if summary.strip().upper() == "SKIP":
+        if summary.strip().upper().startswith("SKIP"):
             logger.debug("Skipped unimportant news: %s", item.title[:50])
             self.db.mark_processed(
                 news_id=news_id, source=item.source,

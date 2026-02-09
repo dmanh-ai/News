@@ -29,6 +29,11 @@ CATEGORY_LABELS = {
 # Max news per category per day
 DAILY_NEWS_LIMIT = int(os.getenv("DAILY_NEWS_LIMIT", "20"))
 
+# Max news per category per 2-hour window (distributes news evenly across the day)
+# 3 per 2 hours = ~18-21 per 14-hour trading day
+HOURLY_SLOT_LIMIT = int(os.getenv("HOURLY_SLOT_LIMIT", "3"))
+HOURLY_SLOT_HOURS = int(os.getenv("HOURLY_SLOT_HOURS", "2"))
+
 
 @dataclass
 class Config:

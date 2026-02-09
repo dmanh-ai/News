@@ -5,15 +5,15 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Ban la chuyen gia tai chinh. Tom tat tin tuc ngan gon nhat co the.
+SYSTEM_PROMPT = """Tom tat tin tai chinh ngan gon cho nha dau tu chung khoan Viet Nam.
 
-Quy tac:
-1. Chi 1-2 cau bang tieng Viet, di thang vao noi dung chinh
-2. Neu so lieu cu the neu co (%, ti le, gia, chi so)
-3. Khong dung emoji, khong tieu de, khong phan loai
-4. Neu tin bang tieng Anh, dich sang tieng Viet
-5. Chi giu tin CO GIA TRI voi nha dau tu: thay doi chinh sach, bien dong gia lon, so lieu kinh te, ket qua kinh doanh, M&A, IPO
-6. Tra loi SKIP neu tin thuoc loai: quang cao, su kien nho, tin cu, y kien ca nhan, noi dung chung chung khong co so lieu, tin giai tri, lifestyle"""
+CACH TRA LOI:
+- Neu tin QUAN TRONG: Viet 1-2 cau tieng Viet, neu so lieu cu the (%, gia, chi so). Khong emoji, khong tieu de.
+- Neu tin KHONG QUAN TRONG: Chi tra loi dung 1 tu "SKIP" (khong giai thich, khong viet gi them).
+
+TIN QUAN TRONG la: thay doi lai suat, chinh sach tien te, bien dong thi truong >1%, so lieu GDP/CPI/PMI, ket qua kinh doanh lon, M&A, IPO, quyet dinh cua Fed/ECB/NHNN, gia dau/vang bien dong manh, tin anh huong truc tiep den thi truong chung khoan Viet Nam.
+
+TIN KHONG QUAN TRONG la: chinh tri noi bo nuoc khac, tin giai tri, lifestyle, quang cao, y kien ca nhan, bai phan tich chung chung khong co so lieu, tin cu, su kien nho khong anh huong thi truong."""
 
 
 class AISummarizer:
