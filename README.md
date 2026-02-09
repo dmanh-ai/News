@@ -1,81 +1,111 @@
 # News Summary Bot
 
-Bot tự động thu thập, tóm tắt và gửi tin tức tài chính qua Telegram.
+Bot tu dong thu thap, tom tat va gui tin tuc tai chinh qua Telegram.
 
-## Tính năng
+## Tinh nang
 
-- **Thu thập tin tức real-time** từ 30+ nguồn RSS (Bloomberg, Reuters, CNBC, CafeF, VnExpress...)
-- **X/Twitter** - theo dõi các tài khoản tài chính lớn
-- **Facebook** - theo dõi các fanpage tin tức
-- **Tóm tắt bằng AI** (OpenAI GPT hoặc Anthropic Claude) - tóm tắt tiếng Việt
-- **Gửi qua Telegram** - nhận tin ngay khi có
-- **Chống trùng lặp** - SQLite database theo dõi tin đã gửi
-- **Phân loại tin tức** - Vĩ mô, Chứng khoán, Tiền tệ, Hàng hóa, Doanh nghiệp
+- **Thu thap tin tuc real-time** tu 120+ nguon RSS (Bloomberg, Reuters, CNBC, CafeF, VnExpress...)
+- **X/Twitter** - theo doi 50+ tai khoan tai chinh lon
+- **Facebook** - theo doi cac fanpage tin tuc
+- **Tom tat bang AI** (OpenAI GPT hoac Anthropic Claude) - tom tat tieng Viet
+- **Gui qua Telegram** - nhan tin ngay khi co
+- **Chong trung lap** - SQLite database theo doi tin da gui
+- **Phan loai tin tuc** - Vi mo, Chung khoan, Tien te, Hang hoa, Doanh nghiep
 
-## Cài đặt
+## Chi phi van hanh
 
-### 1. Clone và cài dependencies
+> Chi tiet: [COST_ESTIMATION.md](COST_ESTIMATION.md)
+
+| Kich ban | AI Model | Chi phi/thang |
+|----------|----------|---------------|
+| **Tiet kiem** | gpt-4o-mini | ~$6 |
+| **Khuyen nghi** | claude-haiku-4-5 + VPS | ~$16 |
+| **Chat luong cao** | gpt-4o + Twitter Basic | ~$208 |
+
+- Telegram, Facebook, RSS: **Mien phi**
+- Twitter Free tier: du cho 50+ accounts
+- Server: $0 (local) - $10 (VPS)
+- AI: $6 - $100/thang tuy model (1,000-1,500 tin/ngay)
+
+## Cai dat
+
+### 1. Clone va cai dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Tạo Telegram Bot
+### 2. Tao Telegram Bot
 
-1. Mở Telegram, tìm `@BotFather`
-2. Gửi `/newbot` và làm theo hướng dẫn
-3. Lưu lại **Bot Token**
-4. Tạo group/channel, thêm bot vào, lấy **Chat ID**
-   - Gửi tin nhắn trong group
-   - Truy cập: `https://api.telegram.org/bot<TOKEN>/getUpdates`
-   - Tìm `chat.id` trong response
+1. Mo Telegram, tim `@BotFather`
+2. Gui `/newbot` va lam theo huong dan
+3. Luu lai **Bot Token**
+4. Tao group/channel, them bot vao, lay **Chat ID**
+   - Gui tin nhan trong group
+   - Truy cap: `https://api.telegram.org/bot<TOKEN>/getUpdates`
+   - Tim `chat.id` trong response
 
-### 3. Cấu hình
+### 3. Cau hinh
 
 ```bash
 cp .env.example .env
-# Chỉnh sửa file .env với các credentials của bạn
+# Chinh sua file .env voi cac credentials cua ban
 ```
 
-### 4. Chạy bot
+### 4. Chay bot
 
 ```bash
-# Chạy trực tiếp
+# Chay truc tiep
 python -m news_bot.main
 
-# Hoặc dùng Docker
+# Hoac dung Docker
 docker compose up -d
 ```
 
-## Cấu hình API Keys
+## Cau hinh API Keys
 
-| Service | Bắt buộc | Hướng dẫn |
+| Service | Bat buoc | Huong dan |
 |---------|----------|-----------|
-| Telegram Bot | ✅ Có | Tạo bot qua @BotFather |
-| OpenAI API | ⚡ Khuyến nghị | https://platform.openai.com/api-keys |
-| Anthropic API | 🔄 Thay thế | https://console.anthropic.com/ |
-| Twitter API | ❌ Tùy chọn | https://developer.twitter.com/ |
-| Facebook API | ❌ Tùy chọn | https://developers.facebook.com/ |
+| Telegram Bot | Bat buoc | Tao bot qua @BotFather |
+| OpenAI API | Khuyen nghi | https://platform.openai.com/api-keys |
+| Anthropic API | Thay the | https://console.anthropic.com/ |
+| Twitter API | Tuy chon | https://developer.twitter.com/ |
+| Facebook API | Tuy chon | https://developers.facebook.com/ |
 
-## Nguồn tin RSS
+## Nguon tin (120+ feeds)
 
-### Quốc tế
-Reuters, Bloomberg, CNBC, WSJ, Financial Times, MarketWatch, Yahoo Finance, The Economist, Forbes, Business Insider, FX Street, Seeking Alpha, Zero Hedge, Nikkei Asia, SCMP
+### Quoc te (70+ feeds)
+- **Hang tin**: Reuters, AP, AFP
+- **My**: Bloomberg, CNBC, WSJ, Financial Times, MarketWatch, Yahoo Finance, The Economist, Forbes, Business Insider, Barrons
+- **Forex/Trading**: FX Street, Forex Factory, DailyFX, Forex Live, Trading Economics
+- **Hang hoa**: OilPrice, Mining.com, Rigzone, Kitco, Platts
+- **Crypto**: CoinDesk, CoinTelegraph, The Block, Decrypt, Bitcoin Magazine
+- **NHTW**: Federal Reserve, ECB, IMF, World Bank, BIS
+- **Chau Au**: Reuters UK, City AM, Les Echos, Handelsblatt, Euronews
+- **Chau A**: Nikkei Asia, SCMP, CNA, Straits Times, Bangkok Post, Jakarta Post, Korea Herald, Economic Times India, China Daily, Asia Times
+- **Trung Dong**: Al Jazeera, Gulf News, Arab News
+- **Phan tich**: Seeking Alpha, Zero Hedge, Wolf Street, Calculated Risk
 
-### Việt Nam
-VnExpress, CafeF, VietStock, Thanh Niên, Tuổi Trẻ, Người Lao Động, Dân Trí, VTV, TBKTSG
+### Viet Nam (50+ feeds)
+- **VnExpress**: Kinh Doanh, The Gioi, Chung Khoan, BDS, Vi Mo, Tai Chinh
+- **CafeF**: Trang Chu, Chung Khoan, Vi Mo, TCQT, Doanh Nghiep, BDS, Ngan Hang, Hang Hoa, Vang, Tien Te
+- **VietStock**: Tai Chinh, TTCK, Doanh Nghiep
+- **Khac**: Thanh Nien, Tuoi Tre, Dan Tri, VTV, TBKTSG, BizLive, Bao Dau Tu, NDH, VnEconomy, Tin Nhanh CK, SBV
 
-## Kiến trúc
+### X/Twitter (50+ accounts)
+Reuters, Bloomberg, CNBC, WSJ, FT, MarketWatch, Yahoo Finance, Seeking Alpha, Zero Hedge, Federal Reserve, ECB, CoinDesk, Nikkei Asia, SCMP, MacroAlf, unusual_whales, DeItaone...
+
+## Kien truc
 
 ```
 news_bot/
-├── collectors/
-│   ├── rss.py          # Thu thập từ RSS feeds
-│   ├── twitter.py      # Thu thập từ X/Twitter API
-│   └── facebook.py     # Thu thập từ Facebook Graph API
-├── summarizer.py       # Tóm tắt tin bằng AI (OpenAI/Anthropic)
-├── telegram_bot.py     # Gửi tin qua Telegram Bot API
-├── database.py         # SQLite - chống trùng lặp
-├── config.py           # Cấu hình từ .env
-└── main.py             # Orchestrator chính
+|-- collectors/
+|   |-- rss.py          # Thu thap tu 120+ RSS feeds
+|   |-- twitter.py      # Thu thap tu X/Twitter API v2
+|   |-- facebook.py     # Thu thap tu Facebook Graph API
+|-- summarizer.py       # Tom tat tin bang AI (OpenAI/Anthropic)
+|-- telegram_bot.py     # Gui tin qua Telegram Bot API
+|-- database.py         # SQLite - chong trung lap
+|-- config.py           # Cau hinh tu .env
+|-- main.py             # Orchestrator chinh
 ```
