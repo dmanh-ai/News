@@ -17,6 +17,9 @@ venv/
 # Database
 *.db
 
+# Daily reports
+daily_reports/
+
 # IDE
 .vscode/
 .idea/

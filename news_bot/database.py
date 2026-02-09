@@ -22,12 +22,17 @@ class NewsDatabase:
                     title TEXT,
                     url TEXT,
                     processed_at REAL NOT NULL,
-                    summary TEXT
+                    summary TEXT,
+                    category TEXT DEFAULT ''
                 )
             """)
             conn.execute("""
                 CREATE INDEX IF NOT EXISTS idx_processed_at
                 ON processed_news(processed_at)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_category
+                ON processed_news(category)
             """)
             conn.commit()
 
@@ -44,16 +49,45 @@ class NewsDatabase:
             return cursor.fetchone() is not None
 
     def mark_processed(
-        self, news_id: str, source: str, title: str, url: str, summary: str = ""
+        self,
+        news_id: str,
+        source: str,
+        title: str,
+        url: str,
+        summary: str = "",
+        category: str = "",
     ):
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(
                 """INSERT OR IGNORE INTO processed_news
-                   (id, source, title, url, processed_at, summary)
-                   VALUES (?, ?, ?, ?, ?, ?)""",
-                (news_id, source, title, url, time.time(), summary),
+                   (id, source, title, url, processed_at, summary, category)
+                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                (news_id, source, title, url, time.time(), summary, category),
             )
             conn.commit()
+
+    def get_today_news(self, category: str = "") -> list[dict]:
+        """Get all news processed today (last 24h) for a category."""
+        cutoff = time.time() - 86400
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            if category:
+                cursor = conn.execute(
+                    """SELECT source, title, url, summary, processed_at
+                       FROM processed_news
+                       WHERE processed_at > ? AND category = ?
+                       ORDER BY processed_at DESC""",
+                    (cutoff, category),
+                )
+            else:
+                cursor = conn.execute(
+                    """SELECT source, title, url, summary, category, processed_at
+                       FROM processed_news
+                       WHERE processed_at > ?
+                       ORDER BY processed_at DESC""",
+                    (cutoff,),
+                )
+            return [dict(row) for row in cursor.fetchall()]
 
     def cleanup_old(self, max_age_days: int = 7):
         """Remove entries older than max_age_days."""

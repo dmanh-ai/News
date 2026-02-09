@@ -16,16 +16,16 @@ Bot tu dong thu thap, tom tat va gui tin tuc tai chinh qua Telegram.
 
 > Chi tiet: [COST_ESTIMATION.md](COST_ESTIMATION.md)
 
-| Kich ban | AI Model | Chi phi/thang |
-|----------|----------|---------------|
-| **Tiet kiem** | gpt-4o-mini | ~$6 |
-| **Khuyen nghi** | claude-haiku-4-5 + VPS | ~$16 |
-| **Chat luong cao** | gpt-4o + Twitter Basic | ~$208 |
+| Kich ban | AI Model | Server | Chi phi/thang |
+|----------|----------|--------|---------------|
+| **Mien phi (GitHub Actions)** | claude-haiku-4-5 | GitHub Actions | **~$11** (chi AI) |
+| **Tiet kiem** | gpt-4o-mini | GitHub Actions | **~$6** (chi AI) |
+| **VPS** | claude-haiku-4-5 | VPS $5 | ~$16 |
 
 - Telegram, Facebook, RSS: **Mien phi**
 - Twitter Free tier: du cho 50+ accounts
-- Server: $0 (local) - $10 (VPS)
-- AI: $6 - $100/thang tuy model (1,000-1,500 tin/ngay)
+- Server: **$0** (GitHub Actions) hoac $5-10 (VPS)
+- AI: $6 - $11/thang (1,000-1,500 tin/ngay)
 
 ## Cai dat
 
@@ -54,11 +54,28 @@ cp .env.example .env
 
 ### 4. Chay bot
 
+**Cach 1: GitHub Actions (khuyen nghi - mien phi server)**
+
+1. Push code len GitHub
+2. Vao repo -> Settings -> Secrets and variables -> Actions
+3. Them cac secrets:
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+   - `ANTHROPIC_API_KEY`
+   - `TWITTER_BEARER_TOKEN` (tuy chon)
+4. Vao tab Actions -> bat workflow "News Summary Bot"
+5. Bot se tu dong chay moi 5 phut
+
+**Cach 2: Chay local / VPS**
+
 ```bash
-# Chay truc tiep
+# Chay lien tuc
 python -m news_bot.main
 
-# Hoac dung Docker
+# Chay 1 lan (test)
+python -m news_bot.main --once
+
+# Docker
 docker compose up -d
 ```
 

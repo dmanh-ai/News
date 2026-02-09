@@ -5,17 +5,46 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+# News categories
+CATEGORY_VN_STOCK = "vn_stock"
+CATEGORY_WORLD_FINANCE = "world_finance"
+CATEGORY_CRYPTO = "crypto"
+CATEGORY_GOLD = "gold"
+
+ALL_CATEGORIES = [CATEGORY_VN_STOCK, CATEGORY_WORLD_FINANCE, CATEGORY_CRYPTO, CATEGORY_GOLD]
+
+CATEGORY_LABELS = {
+    CATEGORY_VN_STOCK: "Chung Khoan Viet Nam",
+    CATEGORY_WORLD_FINANCE: "Tai Chinh The Gioi",
+    CATEGORY_CRYPTO: "Crypto",
+    CATEGORY_GOLD: "Vang",
+}
+
+
 @dataclass
 class Config:
-    # Telegram
+    # Telegram - one bot, 4 separate group chat IDs
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
+    telegram_chat_vn_stock: str = os.getenv("TELEGRAM_CHAT_VN_STOCK", "")
+    telegram_chat_world_finance: str = os.getenv("TELEGRAM_CHAT_WORLD_FINANCE", "")
+    telegram_chat_crypto: str = os.getenv("TELEGRAM_CHAT_CRYPTO", "")
+    telegram_chat_gold: str = os.getenv("TELEGRAM_CHAT_GOLD", "")
 
-    # AI Summarization (supports OpenAI or Anthropic)
+    # AI Summarization - Haiku for news summaries
     ai_provider: str = os.getenv("AI_PROVIDER", "anthropic")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
     ai_model: str = os.getenv("AI_MODEL", "claude-haiku-4-5-20251001")
+
+    # Daily report - Sonnet for end-of-day analysis
+    sonnet_model: str = os.getenv("SONNET_MODEL", "claude-sonnet-4-5-20250929")
+
+    # Daily report time (HH:MM in UTC+7)
+    daily_report_hour: int = int(os.getenv("DAILY_REPORT_HOUR", "22"))
+    daily_report_minute: int = int(os.getenv("DAILY_REPORT_MINUTE", "0"))
+
+    # Daily reports storage directory
+    reports_dir: str = os.getenv("REPORTS_DIR", "daily_reports")
 
     # X/Twitter API
     twitter_bearer_token: str = os.getenv("TWITTER_BEARER_TOKEN", "")
@@ -30,29 +59,27 @@ class Config:
         "FT", "FTMarkets", "ftfinancenews",
         "MarketWatch", "YahooFinance",
         "business", "ForbesBusiness",
-        "TheEconomist", "ECaboronomist",
-        "BIaborntelligence",
+        "TheEconomist",
         # === Markets & Trading ===
         "markets", "Investingcom", "SeekingAlpha",
-        "zaborerohedge", "RealVisionTV",
+        "RealVisionTV",
         "unusual_whales", "DeItaone",
         "Schuldensuehner", "NorthmanTrader",
         # === Central Banks & Policy ===
-        "federalreserve", "ecaborb", "BankofEngland",
-        "RBA", "bankaborofcanada",
+        "federalreserve", "BankofEngland",
         # === Macro & Economics ===
         "MacroAlf", "LynAldenContact", "EPBResearch",
-        "dampedspring", "biaboranco_research",
         # === Crypto & Fintech ===
         "CoinDesk", "Cointelegraph", "WuBlockchain",
         # === Asia ===
-        "NikkeiAsia", "SCMPNews", "business_sa",
-        "caaborijingdaily", "GlobalTimes_News",
+        "NikkeiAsia", "SCMPNews",
+        "GlobalTimes_News",
         # === Vietnam ===
         "VnExpress_en", "VietnamNewss",
         # === Commodities & Energy ===
-        "OilAndEnergy", "GoldTelegraph_",
         "JavierBlas", "Ed_Crooks",
+        # === Gold ===
+        "GoldTelegraph_", "KitcoNewsNOW",
     ])
 
     # Facebook
@@ -61,7 +88,7 @@ class Config:
         "FACEBOOK_PAGE_IDS", ""
     ).split(",") if os.getenv("FACEBOOK_PAGE_IDS") else [])
 
-    # RSS Feeds - 100+ financial news sources worldwide + Vietnam
+    # RSS Feeds - 120+ financial news sources worldwide + Vietnam
     rss_feeds: dict[str, str] = field(default_factory=lambda: {
 
         # =============================================
@@ -75,13 +102,10 @@ class Config:
         # =============================================
         # US FINANCIAL NEWS
         # =============================================
-        # Bloomberg
         "Bloomberg - Markets": "https://feeds.bloomberg.com/markets/news.rss",
         "Bloomberg - Politics": "https://feeds.bloomberg.com/politics/news.rss",
         "Bloomberg - Technology": "https://feeds.bloomberg.com/technology/news.rss",
         "Bloomberg - Wealth": "https://feeds.bloomberg.com/wealth/news.rss",
-
-        # CNBC
         "CNBC - Top News": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114",
         "CNBC - World": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100727362",
         "CNBC - Finance": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=10000664",
@@ -89,21 +113,14 @@ class Config:
         "CNBC - Earnings": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=15839135",
         "CNBC - Commodities": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=18266436",
         "CNBC - Bonds": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=21014093",
-        "CNBC - Currencies": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=21014093",
-
-        # Wall Street Journal
         "WSJ - Markets": "https://feeds.content.wsj.com/rss/markets/main",
         "WSJ - World": "https://feeds.content.wsj.com/rss/world/main",
         "WSJ - Business": "https://feeds.content.wsj.com/rss/RSSWorldnews.xml",
         "WSJ - Opinion": "https://feeds.content.wsj.com/rss/RSSOpinion.xml",
-
-        # Financial Times
         "FT - Home": "https://www.ft.com/rss/home",
         "FT - World": "https://www.ft.com/world?format=rss",
         "FT - Markets": "https://www.ft.com/markets?format=rss",
         "FT - Companies": "https://www.ft.com/companies?format=rss",
-
-        # Others
         "MarketWatch - Top": "https://www.marketwatch.com/rss/topstories",
         "MarketWatch - Markets": "https://www.marketwatch.com/rss/marketpulse",
         "MarketWatch - Bulletins": "https://www.marketwatch.com/rss/realtimeheadlines",
@@ -132,7 +149,7 @@ class Config:
         "Trading Economics": "https://tradingeconomics.com/rss/news.aspx",
 
         # =============================================
-        # COMMODITIES & ENERGY
+        # COMMODITIES & ENERGY & GOLD
         # =============================================
         "OilPrice.com": "https://oilprice.com/rss/main",
         "Mining.com": "https://www.mining.com/feed/",
@@ -214,15 +231,12 @@ class Config:
         # =============================================
         # VIETNAM - Comprehensive
         # =============================================
-        # VnExpress
         "VnExpress - Kinh Doanh": "https://vnexpress.net/rss/kinh-doanh.rss",
         "VnExpress - The Gioi": "https://vnexpress.net/rss/the-gioi.rss",
         "VnExpress - Chung Khoan": "https://vnexpress.net/rss/kinh-doanh/chung-khoan.rss",
         "VnExpress - Bat Dong San": "https://vnexpress.net/rss/kinh-doanh/bat-dong-san.rss",
         "VnExpress - Vi Mo": "https://vnexpress.net/rss/kinh-doanh/vi-mo.rss",
         "VnExpress - Tai Chinh": "https://vnexpress.net/rss/kinh-doanh/tai-chinh.rss",
-
-        # CafeF
         "CafeF - Trang Chu": "https://cafef.vn/rss/trang-chu.rss",
         "CafeF - Chung Khoan": "https://cafef.vn/rss/chung-khoan.rss",
         "CafeF - Vi Mo": "https://cafef.vn/rss/vi-mo-dau-tu.rss",
@@ -233,13 +247,9 @@ class Config:
         "CafeF - Hang Hoa": "https://cafef.vn/rss/hang-hoa-nguyen-lieu.rss",
         "CafeF - Vang": "https://cafef.vn/rss/vang.rss",
         "CafeF - Tien Te": "https://cafef.vn/rss/tien-te.rss",
-
-        # VietStock
         "VietStock - Tai Chinh": "https://vietstock.vn/rss/tai-chinh.rss",
         "VietStock - TTCK": "https://vietstock.vn/rss/chung-khoan.rss",
         "VietStock - Doanh Nghiep": "https://vietstock.vn/rss/doanh-nghiep.rss",
-
-        # Other Vietnam
         "Thanh Nien - Kinh Te": "https://thanhnien.vn/rss/kinh-te.rss",
         "Thanh Nien - Tai Chinh": "https://thanhnien.vn/rss/tai-chinh-kinh-doanh.rss",
         "Tuoi Tre - Kinh Doanh": "https://tuoitre.vn/rss/kinh-doanh.rss",
@@ -265,7 +275,7 @@ class Config:
     })
 
     # Polling intervals (seconds)
-    rss_poll_interval: int = int(os.getenv("RSS_POLL_INTERVAL", "120"))  # 2 minutes
+    rss_poll_interval: int = int(os.getenv("RSS_POLL_INTERVAL", "120"))
     twitter_poll_interval: int = int(os.getenv("TWITTER_POLL_INTERVAL", "60"))
     facebook_poll_interval: int = int(os.getenv("FACEBOOK_POLL_INTERVAL", "180"))
 
@@ -273,7 +283,15 @@ class Config:
     db_path: str = os.getenv("DB_PATH", "news_bot.db")
 
     # Summarization language
-    summary_language: str = os.getenv("SUMMARY_LANGUAGE", "vi")  # Vietnamese by default
+    summary_language: str = os.getenv("SUMMARY_LANGUAGE", "vi")
+
+    def get_chat_id(self, category: str) -> str:
+        return {
+            CATEGORY_VN_STOCK: self.telegram_chat_vn_stock,
+            CATEGORY_WORLD_FINANCE: self.telegram_chat_world_finance,
+            CATEGORY_CRYPTO: self.telegram_chat_crypto,
+            CATEGORY_GOLD: self.telegram_chat_gold,
+        }.get(category, "")
 
 
 config = Config()

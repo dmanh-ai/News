@@ -1,0 +1,141 @@
+name: News Summary Bot
+
+on:
+  schedule:
+    # Thu thap tin moi 5 phut
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Run mode'
+        required: false
+        default: 'once'
+        type: choice
+        options:
+          - once
+          - daily-report
+
+jobs:
+  collect-news:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Restore database
+      - name: Restore database cache
+        uses: actions/cache@v4
+        with:
+          path: news_bot.db
+          key: news-db-${{ github.run_id }}
+          restore-keys: |
+            news-db-
+
+      # Restore daily reports
+      - name: Restore reports cache
+        uses: actions/cache@v4
+        with:
+          path: daily_reports/
+          key: reports-${{ github.run_id }}
+          restore-keys: |
+            reports-
+
+      - name: Run news bot
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_VN_STOCK: ${{ secrets.TELEGRAM_CHAT_VN_STOCK }}
+          TELEGRAM_CHAT_WORLD_FINANCE: ${{ secrets.TELEGRAM_CHAT_WORLD_FINANCE }}
+          TELEGRAM_CHAT_CRYPTO: ${{ secrets.TELEGRAM_CHAT_CRYPTO }}
+          TELEGRAM_CHAT_GOLD: ${{ secrets.TELEGRAM_CHAT_GOLD }}
+          AI_PROVIDER: anthropic
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_MODEL: claude-haiku-4-5-20251001
+          SONNET_MODEL: claude-sonnet-4-5-20250929
+          TWITTER_BEARER_TOKEN: ${{ secrets.TWITTER_BEARER_TOKEN }}
+          FACEBOOK_ACCESS_TOKEN: ${{ secrets.FACEBOOK_ACCESS_TOKEN }}
+          FACEBOOK_PAGE_IDS: ${{ secrets.FACEBOOK_PAGE_IDS }}
+          DB_PATH: news_bot.db
+          REPORTS_DIR: daily_reports
+        run: |
+          MODE="${{ github.event.inputs.mode || 'once' }}"
+          python -m news_bot.main --${MODE}
+
+  # Bao cao cuoi ngay - chay luc 22:00 UTC+7 = 15:00 UTC
+  daily-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event.schedule == '*/5 * * * *'
+
+    steps:
+      - name: Check if daily report time (15:00 UTC = 22:00 UTC+7)
+        id: check-time
+        run: |
+          HOUR=$(date -u +%H)
+          MINUTE=$(date -u +%M)
+          if [ "$HOUR" = "15" ] && [ "$MINUTE" -lt "10" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout code
+        if: steps.check-time.outputs.should_run == 'true'
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        if: steps.check-time.outputs.should_run == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        if: steps.check-time.outputs.should_run == 'true'
+        run: pip install -r requirements.txt
+
+      - name: Restore database cache
+        if: steps.check-time.outputs.should_run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: news_bot.db
+          key: news-db-${{ github.run_id }}
+          restore-keys: |
+            news-db-
+
+      - name: Restore reports cache
+        if: steps.check-time.outputs.should_run == 'true'
+        uses: actions/cache@v4
+        with:
+          path: daily_reports/
+          key: reports-${{ github.run_id }}
+          restore-keys: |
+            reports-
+
+      - name: Generate daily reports (Sonnet)
+        if: steps.check-time.outputs.should_run == 'true'
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_VN_STOCK: ${{ secrets.TELEGRAM_CHAT_VN_STOCK }}
+          TELEGRAM_CHAT_WORLD_FINANCE: ${{ secrets.TELEGRAM_CHAT_WORLD_FINANCE }}
+          TELEGRAM_CHAT_CRYPTO: ${{ secrets.TELEGRAM_CHAT_CRYPTO }}
+          TELEGRAM_CHAT_GOLD: ${{ secrets.TELEGRAM_CHAT_GOLD }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SONNET_MODEL: claude-sonnet-4-5-20250929
+          DB_PATH: news_bot.db
+          REPORTS_DIR: daily_reports
+        run: python -m news_bot.main --daily-report

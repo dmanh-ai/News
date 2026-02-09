@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -16,6 +17,7 @@ class NewsItem:
     source: str
     content: str
     published: datetime | None = None
+    image_url: str = ""
 
     def __str__(self):
         return f"[{self.source}] {self.title}"
@@ -39,6 +41,41 @@ class RSSCollector:
                 },
             )
         return self._session
+
+    @staticmethod
+    def _extract_image(entry, content: str) -> str:
+        """Extract image URL from RSS entry using multiple strategies."""
+        # 1. media:content or media:thumbnail
+        if hasattr(entry, "media_content") and entry.media_content:
+            for media in entry.media_content:
+                url = media.get("url", "")
+                media_type = media.get("type", "")
+                if url and ("image" in media_type or media_type == ""):
+                    return url
+
+        if hasattr(entry, "media_thumbnail") and entry.media_thumbnail:
+            for thumb in entry.media_thumbnail:
+                url = thumb.get("url", "")
+                if url:
+                    return url
+
+        # 2. enclosure (common in RSS 2.0)
+        if hasattr(entry, "enclosures") and entry.enclosures:
+            for enc in entry.enclosures:
+                url = enc.get("href", "") or enc.get("url", "")
+                enc_type = enc.get("type", "")
+                if url and "image" in enc_type:
+                    return url
+
+        # 3. Extract <img src="..."> from content/description HTML
+        if content:
+            img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', content)
+            if img_match:
+                url = img_match.group(1)
+                if url.startswith("http"):
+                    return url
+
+        return ""
 
     async def fetch_feed(self, name: str, url: str) -> list[NewsItem]:
         """Fetch and parse a single RSS feed."""
@@ -67,6 +104,9 @@ class RSSCollector:
                 if hasattr(entry, "content") and entry.content:
                     content = entry.content[0].get("value", content)
 
+                # Extract image
+                image_url = self._extract_image(entry, content)
+
                 # Parse published date
                 published = None
                 if hasattr(entry, "published_parsed") and entry.published_parsed:
@@ -81,6 +121,7 @@ class RSSCollector:
                     source=name,
                     content=content,
                     published=published,
+                    image_url=image_url,
                 ))
 
         except asyncio.TimeoutError:

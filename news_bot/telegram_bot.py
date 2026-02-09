@@ -7,19 +7,18 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramSender:
-    """Sends formatted news summaries to Telegram."""
+    """Sends formatted news summaries with images to Telegram groups."""
 
     API_BASE = "https://api.telegram.org/bot{token}"
 
-    def __init__(self, bot_token: str, chat_id: str):
+    def __init__(self, bot_token: str):
         self.bot_token = bot_token
-        self.chat_id = chat_id
         self._session: aiohttp.ClientSession | None = None
         self._base_url = self.API_BASE.format(token=bot_token)
 
     @property
     def is_configured(self) -> bool:
-        return bool(self.bot_token and self.chat_id)
+        return bool(self.bot_token)
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
@@ -33,16 +32,16 @@ class TelegramSender:
     ) -> str:
         """Format a news item as a Telegram message with HTML."""
         parts = [
-            f"<b>📌 {self._escape_html(title)}</b>",
+            f"<b>{self._escape_html(title)}</b>",
             "",
-            f"🔗 <i>Nguồn: {self._escape_html(source)}</i>",
+            f"<i>{self._escape_html(source)}</i>",
             "",
             self._escape_html(summary),
         ]
 
         if url:
             parts.append("")
-            parts.append(f'👉 <a href="{url}">Đọc thêm</a>')
+            parts.append(f'<a href="{url}">Doc them</a>')
 
         return "\n".join(parts)
 
@@ -55,69 +54,122 @@ class TelegramSender:
             .replace(">", "&gt;")
         )
 
-    async def send_message(self, text: str) -> bool:
-        """Send a message to the configured Telegram chat."""
-        if not self.is_configured:
-            logger.warning("Telegram not configured. Message not sent.")
-            return False
-
+    async def _api_call(self, method: str, payload: dict) -> bool:
+        """Make a Telegram API call with rate limit handling."""
         try:
             session = await self._get_session()
-            url = f"{self._base_url}/sendMessage"
-            payload = {
-                "chat_id": self.chat_id,
-                "text": text,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": False,
-            }
+            url = f"{self._base_url}/{method}"
 
             async with session.post(url, json=payload) as resp:
                 if resp.status == 200:
                     return True
                 elif resp.status == 429:
-                    # Rate limited - wait and retry
                     data = await resp.json()
                     retry_after = data.get("parameters", {}).get("retry_after", 5)
-                    logger.warning(
-                        "Telegram rate limit. Waiting %d seconds.", retry_after
-                    )
+                    logger.warning("Telegram rate limit. Waiting %ds.", retry_after)
                     await asyncio.sleep(retry_after)
-                    return await self.send_message(text)
+                    return await self._api_call(method, payload)
                 else:
                     error = await resp.text()
-                    logger.error("Telegram API error %d: %s", resp.status, error)
+                    logger.error("Telegram %s error %d: %s", method, resp.status, error)
                     return False
 
         except Exception as e:
-            logger.error("Failed to send Telegram message: %s", e)
+            logger.error("Telegram %s failed: %s", method, e)
             return False
 
+    async def send_message(self, chat_id: str, text: str) -> bool:
+        """Send a text message to a specific chat."""
+        if not self.is_configured or not chat_id:
+            return False
+
+        # Telegram limit: 4096 chars
+        if len(text) > 4096:
+            text = text[:4090] + "\n..."
+
+        return await self._api_call("sendMessage", {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": False,
+        })
+
+    async def send_photo(self, chat_id: str, photo_url: str, caption: str) -> bool:
+        """Send a photo with caption to a specific chat."""
+        if not self.is_configured or not chat_id:
+            return False
+
+        # Telegram photo caption limit: 1024 chars
+        if len(caption) > 1024:
+            caption = caption[:1018] + "\n..."
+
+        return await self._api_call("sendPhoto", {
+            "chat_id": chat_id,
+            "photo": photo_url,
+            "caption": caption,
+            "parse_mode": "HTML",
+        })
+
     async def send_news(
-        self, title: str, source: str, summary: str, url: str
+        self,
+        chat_id: str,
+        title: str,
+        source: str,
+        summary: str,
+        url: str,
+        image_url: str = "",
     ) -> bool:
-        """Format and send a news item."""
+        """Send a news item - with photo if available, otherwise text only."""
         message = self.format_message(title, source, summary, url)
 
-        # Telegram message limit is 4096 chars
-        if len(message) > 4096:
-            message = message[:4090] + "\n..."
+        if image_url:
+            success = await self.send_photo(chat_id, image_url, message)
+            if success:
+                logger.info("Sent news with photo to %s: %s", chat_id, title[:50])
+                return True
+            # Fallback to text if photo fails
+            logger.warning("Photo send failed, falling back to text: %s", title[:50])
 
-        success = await self.send_message(message)
+        success = await self.send_message(chat_id, message)
         if success:
-            logger.info("Sent news to Telegram: %s", title[:60])
+            logger.info("Sent news to %s: %s", chat_id, title[:50])
         return success
 
-    async def send_startup_message(self):
-        """Send a startup notification."""
-        message = (
-            "🤖 <b>News Summary Bot đã khởi động!</b>\n\n"
-            "Bot sẽ tự động thu thập và tóm tắt tin tức tài chính từ:\n"
-            "• 📰 RSS Feeds (Reuters, Bloomberg, CNBC, CafeF, VnExpress...)\n"
-            "• 🐦 X/Twitter\n"
-            "• 📘 Facebook\n\n"
-            "Tin tức sẽ được gửi ngay khi phát hiện."
-        )
-        await self.send_message(message)
+    async def send_daily_report(self, chat_id: str, report: str) -> bool:
+        """Send a daily report. Split into multiple messages if needed."""
+        if not chat_id:
+            return False
+
+        # Split long reports into chunks of ~4000 chars at line boundaries
+        chunks = self._split_message(report, max_len=4000)
+        for chunk in chunks:
+            success = await self.send_message(chat_id, chunk)
+            if not success:
+                return False
+            await asyncio.sleep(1)
+        return True
+
+    @staticmethod
+    def _split_message(text: str, max_len: int = 4000) -> list[str]:
+        """Split a long message into chunks at line boundaries."""
+        if len(text) <= max_len:
+            return [text]
+
+        chunks = []
+        while text:
+            if len(text) <= max_len:
+                chunks.append(text)
+                break
+
+            # Find last newline before max_len
+            split_at = text.rfind("\n", 0, max_len)
+            if split_at == -1:
+                split_at = max_len
+
+            chunks.append(text[:split_at])
+            text = text[split_at:].lstrip("\n")
+
+        return chunks
 
     async def close(self):
         if self._session and not self._session.closed:
