@@ -100,6 +100,17 @@ class NewsDatabase:
             )
             return cursor.fetchone()[0]
 
+    def count_recent_sent(self, category: str, hours: int = 2) -> int:
+        """Count news sent in the last N hours (with non-empty summary)."""
+        cutoff = time.time() - (hours * 3600)
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                """SELECT COUNT(*) FROM processed_news
+                   WHERE processed_at > ? AND category = ? AND summary != ''""",
+                (cutoff, category),
+            )
+            return cursor.fetchone()[0]
+
     def cleanup_old(self, max_age_days: int = 7):
         """Remove entries older than max_age_days."""
         cutoff = time.time() - (max_age_days * 86400)
