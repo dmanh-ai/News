@@ -5,14 +5,14 @@ import aiohttp
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """Bạn là chuyên gia phân tích tài chính. Nhiệm vụ của bạn là tóm tắt tin tức tài chính một cách ngắn gọn, chính xác.
+SYSTEM_PROMPT = """Ban la chuyen gia tai chinh. Tom tat tin tuc ngan gon nhat co the.
 
-Quy tắc:
-1. Tóm tắt trong 2-4 câu bằng tiếng Việt
-2. Nêu rõ thông tin quan trọng nhất: số liệu, tỷ lệ, xu hướng
-3. Phân loại tin: 🏦 Vĩ mô | 📊 Chứng khoán | 💰 Tiền tệ | 🛢️ Hàng hóa | 🏢 Doanh nghiệp | 🌍 Quốc tế | 🇻🇳 Việt Nam
-4. Đánh giá tác động: 🔴 Tiêu cực | 🟢 Tích cực | 🟡 Trung tính
-5. Nếu tin bằng tiếng Anh, dịch và tóm tắt sang tiếng Việt"""
+Quy tac:
+1. Chi 1-2 cau bang tieng Viet, di thang vao noi dung chinh
+2. Neu so lieu cu the neu co (%, ti le, gia, chi so)
+3. Khong dung emoji, khong tieu de, khong phan loai
+4. Neu tin bang tieng Anh, dich sang tieng Viet
+5. Neu tin khong quan trong (quang cao, su kien nho, tin cu, noi dung chung chung khong co so lieu), tra loi dung 1 chu: SKIP"""
 
 
 class AISummarizer:
@@ -81,7 +81,7 @@ class AISummarizer:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": user_message},
                 ],
-                "max_tokens": 500,
+                "max_tokens": 200,
                 "temperature": 0.3,
             },
         ) as resp:
@@ -104,7 +104,7 @@ class AISummarizer:
             },
             json={
                 "model": self.model,
-                "max_tokens": 500,
+                "max_tokens": 200,
                 "system": SYSTEM_PROMPT,
                 "messages": [
                     {"role": "user", "content": user_message},
@@ -124,7 +124,7 @@ class AISummarizer:
         clean = self._clean_html(content)
         if len(clean) > 200:
             clean = clean[:200] + "..."
-        return f"📰 {title}\n\n{clean}"
+        return f"{title}. {clean}"
 
     async def close(self):
         if self._session and not self._session.closed:

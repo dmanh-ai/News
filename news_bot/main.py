@@ -109,14 +109,21 @@ class NewsSummaryBot:
             source=item.source,
         )
 
-        # Send to the correct Telegram group (with image if available)
+        # Filter out unimportant news (AI returns "SKIP")
+        if summary.strip().upper() == "SKIP":
+            logger.debug("Skipped unimportant news: %s", item.title[:50])
+            self.db.mark_processed(
+                news_id=news_id, source=item.source,
+                title=item.title, url=item.url,
+                summary="", category=category,
+            )
+            return False
+
+        # Send concise summary + link to the correct Telegram group
         success = await self.telegram.send_news(
             chat_id=chat_id,
-            title=item.title,
-            source=item.source,
             summary=summary,
             url=item.url,
-            image_url=item.image_url,
         )
 
         if success:

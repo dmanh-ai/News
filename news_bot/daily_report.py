@@ -20,22 +20,22 @@ logger = logging.getLogger(__name__)
 
 VN_TZ = timezone(timedelta(hours=7))
 
-DAILY_REPORT_PROMPT = """Ban la chuyen gia phan tich tai chinh cap cao. Hay viet bao cao tong hop cuoi ngay cho danh muc "{category_label}".
+DAILY_REPORT_PROMPT = """Ban la chuyen gia phan tich tai chinh. Viet bao cao cuoi ngay cho "{category_label}" ngay {date}.
 
-DU LIEU HOM NAY ({date}):
+TIN TUC HOM NAY:
 {news_summaries}
 
 {history_context}
 
-YEU CAU BAO CAO:
-1. TONG QUAN: Tom tat xu huong chinh trong ngay (3-5 cau)
-2. TIN NONG: 3-5 tin quan trong nhat va tac dong
-3. PHAN TICH: Xau chuoi cac su kien, nhan dinh nguyen nhan va he qua
-4. NHAN DINH: Dua ra du bao ngan han (1-3 ngay toi) dua tren xu huong
-5. KHUYEN NGHI: Hanh dong nen lam (mua/ban/giu/theo doi gi)
+YEU CAU:
+Viet bao cao ngan gon, tap trung vao 3 phan:
 
-Viet bang tieng Viet, su dung so lieu cu the. Format HTML cho Telegram (dung <b>, <i>, <code>).
-Bat dau bang emoji phu hop cho tung muc."""
+1. TAC DONG TICH CUC: Nhung tin/su kien tot, co hoi, xu huong tang
+2. TAC DONG TIEU CUC: Nhung rui ro, tin xau, xu huong giam
+3. KHUYEN NGHI: Nen lam gi (mua/ban/giu/theo doi) voi ly do cu the
+
+Viet bang tieng Viet, dung so lieu cu the. Format HTML cho Telegram (dung <b>, <i>).
+Khong dung emoji. Moi phan chi 3-5 dong, di thang vao van de."""
 
 
 class DailyReporter:

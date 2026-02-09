@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class TelegramSender:
-    """Sends formatted news summaries with images to Telegram groups."""
+    """Sends concise news summaries to Telegram groups."""
 
     API_BASE = "https://api.telegram.org/bot{token}"
 
@@ -27,23 +27,12 @@ class TelegramSender:
             )
         return self._session
 
-    def format_message(
-        self, title: str, source: str, summary: str, url: str
-    ) -> str:
-        """Format a news item as a Telegram message with HTML."""
-        parts = [
-            f"<b>{self._escape_html(title)}</b>",
-            "",
-            f"<i>{self._escape_html(source)}</i>",
-            "",
-            self._escape_html(summary),
-        ]
-
+    def format_message(self, summary: str, url: str) -> str:
+        """Format a news item as a concise Telegram message."""
+        text = self._escape_html(summary)
         if url:
-            parts.append("")
-            parts.append(f'<a href="{url}">Doc them</a>')
-
-        return "\n".join(parts)
+            text += f'\n<a href="{url}">Chi tiet</a>'
+        return text
 
     @staticmethod
     def _escape_html(text: str) -> str:
@@ -113,26 +102,14 @@ class TelegramSender:
     async def send_news(
         self,
         chat_id: str,
-        title: str,
-        source: str,
         summary: str,
         url: str,
-        image_url: str = "",
     ) -> bool:
-        """Send a news item - with photo if available, otherwise text only."""
-        message = self.format_message(title, source, summary, url)
-
-        if image_url:
-            success = await self.send_photo(chat_id, image_url, message)
-            if success:
-                logger.info("Sent news with photo to %s: %s", chat_id, title[:50])
-                return True
-            # Fallback to text if photo fails
-            logger.warning("Photo send failed, falling back to text: %s", title[:50])
-
+        """Send a concise news summary with link."""
+        message = self.format_message(summary, url)
         success = await self.send_message(chat_id, message)
         if success:
-            logger.info("Sent news to %s: %s", chat_id, title[:50])
+            logger.info("Sent news to %s: %s", chat_id, summary[:50])
         return success
 
     async def send_daily_report(self, chat_id: str, report: str) -> bool:
