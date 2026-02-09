@@ -63,6 +63,7 @@ jobs:
           TELEGRAM_CHAT_WORLD_FINANCE: ${{ secrets.TELEGRAM_CHAT_WORLD_FINANCE }}
           TELEGRAM_CHAT_CRYPTO: ${{ secrets.TELEGRAM_CHAT_CRYPTO }}
           TELEGRAM_CHAT_GOLD: ${{ secrets.TELEGRAM_CHAT_GOLD }}
+          TELEGRAM_CHAT_COMMODITY: ${{ secrets.TELEGRAM_CHAT_COMMODITY }}
           AI_PROVIDER: anthropic
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AI_MODEL: claude-haiku-4-5-20251001
@@ -134,6 +135,7 @@ jobs:
           TELEGRAM_CHAT_WORLD_FINANCE: ${{ secrets.TELEGRAM_CHAT_WORLD_FINANCE }}
           TELEGRAM_CHAT_CRYPTO: ${{ secrets.TELEGRAM_CHAT_CRYPTO }}
           TELEGRAM_CHAT_GOLD: ${{ secrets.TELEGRAM_CHAT_GOLD }}
+          TELEGRAM_CHAT_COMMODITY: ${{ secrets.TELEGRAM_CHAT_COMMODITY }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SONNET_MODEL: claude-sonnet-4-5-20250929
           DB_PATH: news_bot.db

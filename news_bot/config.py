@@ -10,25 +10,35 @@ CATEGORY_VN_STOCK = "vn_stock"
 CATEGORY_WORLD_FINANCE = "world_finance"
 CATEGORY_CRYPTO = "crypto"
 CATEGORY_GOLD = "gold"
+CATEGORY_COMMODITY = "commodity"
 
-ALL_CATEGORIES = [CATEGORY_VN_STOCK, CATEGORY_WORLD_FINANCE, CATEGORY_CRYPTO, CATEGORY_GOLD]
+# Categories that receive real-time news (limited to DAILY_NEWS_LIMIT per day)
+NEWS_CATEGORIES = [CATEGORY_VN_STOCK, CATEGORY_WORLD_FINANCE, CATEGORY_CRYPTO, CATEGORY_GOLD]
+
+# All categories including commodity (commodity only gets daily report, no real-time news)
+ALL_CATEGORIES = [CATEGORY_VN_STOCK, CATEGORY_WORLD_FINANCE, CATEGORY_CRYPTO, CATEGORY_GOLD, CATEGORY_COMMODITY]
 
 CATEGORY_LABELS = {
     CATEGORY_VN_STOCK: "Chung Khoan Viet Nam",
     CATEGORY_WORLD_FINANCE: "Tai Chinh The Gioi",
     CATEGORY_CRYPTO: "Crypto",
     CATEGORY_GOLD: "Vang",
+    CATEGORY_COMMODITY: "Hang Hoa The Gioi",
 }
+
+# Max news per category per day
+DAILY_NEWS_LIMIT = int(os.getenv("DAILY_NEWS_LIMIT", "20"))
 
 
 @dataclass
 class Config:
-    # Telegram - one bot, 4 separate group chat IDs
+    # Telegram - one bot, 5 separate group chat IDs
     telegram_bot_token: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
     telegram_chat_vn_stock: str = os.getenv("TELEGRAM_CHAT_VN_STOCK", "")
     telegram_chat_world_finance: str = os.getenv("TELEGRAM_CHAT_WORLD_FINANCE", "")
     telegram_chat_crypto: str = os.getenv("TELEGRAM_CHAT_CRYPTO", "")
     telegram_chat_gold: str = os.getenv("TELEGRAM_CHAT_GOLD", "")
+    telegram_chat_commodity: str = os.getenv("TELEGRAM_CHAT_COMMODITY", "")
 
     # AI Summarization - Haiku for news summaries
     ai_provider: str = os.getenv("AI_PROVIDER", "anthropic")
@@ -291,6 +301,7 @@ class Config:
             CATEGORY_WORLD_FINANCE: self.telegram_chat_world_finance,
             CATEGORY_CRYPTO: self.telegram_chat_crypto,
             CATEGORY_GOLD: self.telegram_chat_gold,
+            CATEGORY_COMMODITY: self.telegram_chat_commodity,
         }.get(category, "")
 
 

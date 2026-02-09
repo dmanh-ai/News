@@ -7,11 +7,13 @@ import aiohttp
 from .config import (
     config,
     ALL_CATEGORIES,
+    NEWS_CATEGORIES,
     CATEGORY_LABELS,
     CATEGORY_VN_STOCK,
     CATEGORY_WORLD_FINANCE,
     CATEGORY_CRYPTO,
     CATEGORY_GOLD,
+    CATEGORY_COMMODITY,
 )
 from .database import NewsDatabase
 from .telegram_bot import TelegramSender
@@ -20,22 +22,40 @@ logger = logging.getLogger(__name__)
 
 VN_TZ = timezone(timedelta(hours=7))
 
-DAILY_REPORT_PROMPT = """Ban la chuyen gia phan tich tai chinh cap cao. Hay viet bao cao tong hop cuoi ngay cho danh muc "{category_label}".
+DAILY_REPORT_PROMPT = """Ban la chuyen gia phan tich tai chinh. Viet bao cao cuoi ngay cho "{category_label}" ngay {date}.
 
-DU LIEU HOM NAY ({date}):
+TIN TUC HOM NAY:
 {news_summaries}
 
 {history_context}
 
-YEU CAU BAO CAO:
-1. TONG QUAN: Tom tat xu huong chinh trong ngay (3-5 cau)
-2. TIN NONG: 3-5 tin quan trong nhat va tac dong
-3. PHAN TICH: Xau chuoi cac su kien, nhan dinh nguyen nhan va he qua
-4. NHAN DINH: Dua ra du bao ngan han (1-3 ngay toi) dua tren xu huong
-5. KHUYEN NGHI: Hanh dong nen lam (mua/ban/giu/theo doi gi)
+YEU CAU:
+Viet bao cao ngan gon, tap trung vao 3 phan:
 
-Viet bang tieng Viet, su dung so lieu cu the. Format HTML cho Telegram (dung <b>, <i>, <code>).
-Bat dau bang emoji phu hop cho tung muc."""
+1. TAC DONG TICH CUC: Nhung tin/su kien tot, co hoi, xu huong tang
+2. TAC DONG TIEU CUC: Nhung rui ro, tin xau, xu huong giam
+3. KHUYEN NGHI: Nen lam gi (mua/ban/giu/theo doi) voi ly do cu the
+
+Viet bang tieng Viet, dung so lieu cu the. Format HTML cho Telegram (dung <b>, <i>).
+Khong dung emoji. Moi phan chi 3-5 dong, di thang vao van de."""
+
+COMMODITY_REPORT_PROMPT = """Ban la chuyen gia phan tich hang hoa the gioi. Ngay {date}, hay viet bang thong ke gia cac loai hang hoa chinh tren the gioi va khuyen nghi cho nha dau tu co phieu Viet Nam.
+
+{commodity_news}
+
+{history_context}
+
+YEU CAU:
+1. BANG GIA HANG HOA: Liet ke gia cac loai hang hoa chinh (dau tho WTI/Brent, khong khi tu nhien, than, thep, dong, nhom, cao su, gao, ca phe, duong, dau tuong, ngo, lua mi...). Neu gia hien tai, % thay doi trong ngay/tuan neu co.
+
+2. XU HUONG: Phan tich ngan gon xu huong gia hang hoa dang tang/giam va nguyen nhan (cung cau, dia chinh tri, thoi tiet...)
+
+3. TAC DONG DEN VIET NAM: Nhung mat hang nao anh huong truc tiep den doanh nghiep Viet Nam (thep -> HPG/HSG, dau -> GAS/PLX/BSR, cao su -> GVR/PHR, phan bon -> DPM/DCM, duong -> SBT/QNS...)
+
+4. KHUYEN NGHI CO PHIEU VN: Cu the nen mua/ban/theo doi co phieu nao tren san Viet Nam dua tren bien dong hang hoa, voi ly do ro rang.
+
+Viet bang tieng Viet. Format HTML cho Telegram (dung <b>, <i>).
+Khong dung emoji. Di thang vao so lieu va khuyen nghi."""
 
 
 class DailyReporter:
@@ -152,11 +172,63 @@ class DailyReporter:
             logger.error("Failed to generate report for %s: %s", category, e)
             return None
 
+    async def generate_commodity_report(self) -> str | None:
+        """Generate daily commodity price table + VN stock recommendations."""
+        # Gather commodity-related news from all categories
+        all_news = self.db.get_today_news()
+        commodity_kw = [
+            "oil", "crude", "brent", "wti", "dau tho", "dầu thô",
+            "natural gas", "khi tu nhien", "khí tự nhiên",
+            "coal", "than", "steel", "thep", "thép",
+            "copper", "dong", "đồng", "aluminum", "nhom", "nhôm",
+            "rubber", "cao su", "rice", "gao", "gạo",
+            "coffee", "ca phe", "cà phê", "sugar", "duong", "đường",
+            "soybean", "dau tuong", "đậu tương", "corn", "ngo", "ngô",
+            "wheat", "lua mi", "lúa mì", "palm oil", "dau co",
+            "iron ore", "quang sat", "fertilizer", "phan bon", "phân bón",
+            "commodity", "commodities", "hang hoa", "hàng hóa",
+            "gold", "vang", "vàng", "silver", "bac", "bạc",
+        ]
+
+        commodity_items = []
+        for item in all_news:
+            text = f"{item.get('title', '')} {item.get('summary', '')}".lower()
+            for kw in commodity_kw:
+                if kw in text:
+                    commodity_items.append(item)
+                    break
+
+        # Build summaries
+        summaries = []
+        for i, item in enumerate(commodity_items[:50], 1):
+            summaries.append(
+                f"{i}. [{item['source']}] {item['title']}\n   {item.get('summary', '')[:200]}"
+            )
+
+        news_text = "\n".join(summaries) if summaries else "Khong co tin hang hoa hom nay."
+        today_str = datetime.now(VN_TZ).strftime("%Y-%m-%d")
+        history = self._load_recent_reports(CATEGORY_COMMODITY)
+
+        prompt = COMMODITY_REPORT_PROMPT.format(
+            date=today_str,
+            commodity_news=news_text,
+            history_context=history,
+        )
+
+        try:
+            report = await self._generate_report_sonnet(prompt)
+            self._save_report(CATEGORY_COMMODITY, report, today_str)
+            return report
+        except Exception as e:
+            logger.error("Failed to generate commodity report: %s", e)
+            return None
+
     async def run_daily_reports(self):
         """Generate and send daily reports for all categories."""
         logger.info("Starting daily report generation...")
 
-        for category in ALL_CATEGORIES:
+        # Regular category reports
+        for category in NEWS_CATEGORIES:
             chat_id = config.get_chat_id(category)
             if not chat_id:
                 logger.warning("No chat ID for category %s, skipping report", category)
@@ -171,6 +243,18 @@ class DailyReporter:
                 )
                 await self.telegram.send_daily_report(chat_id, header + report)
                 logger.info("Sent daily report for %s", category)
+
+        # Commodity report (special: price table + VN stock recommendations)
+        commodity_chat_id = config.get_chat_id(CATEGORY_COMMODITY)
+        if commodity_chat_id:
+            report = await self.generate_commodity_report()
+            if report:
+                header = (
+                    f"<b>BANG GIA HANG HOA THE GIOI</b>\n"
+                    f"<i>{datetime.now(VN_TZ).strftime('%d/%m/%Y %H:%M')}</i>\n\n"
+                )
+                await self.telegram.send_daily_report(commodity_chat_id, header + report)
+                logger.info("Sent commodity report")
 
         logger.info("Daily reports complete.")
 
