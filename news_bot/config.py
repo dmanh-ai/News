@@ -12,10 +12,10 @@ class Config:
     telegram_chat_id: str = os.getenv("TELEGRAM_CHAT_ID", "")
 
     # AI Summarization (supports OpenAI or Anthropic)
-    ai_provider: str = os.getenv("AI_PROVIDER", "openai")  # "openai" or "anthropic"
+    ai_provider: str = os.getenv("AI_PROVIDER", "anthropic")
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")
-    ai_model: str = os.getenv("AI_MODEL", "gpt-4o-mini")
+    ai_model: str = os.getenv("AI_MODEL", "claude-haiku-4-5-20251001")
 
     # X/Twitter API
     twitter_bearer_token: str = os.getenv("TWITTER_BEARER_TOKEN", "")
