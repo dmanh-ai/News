@@ -1,0 +1,11 @@
+services:
+  news-bot:
+    build: .
+    container_name: news-summary-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_PATH=/app/data/news_bot.db
