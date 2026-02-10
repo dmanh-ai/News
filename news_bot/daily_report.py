@@ -224,10 +224,9 @@ class DailyReporter:
             return None
 
     async def run_daily_reports(self):
-        """Generate and send daily reports for all categories."""
+        """Generate and send daily reports for 4 news categories (22:00 UTC+7)."""
         logger.info("Starting daily report generation...")
 
-        # Regular category reports
         for category in NEWS_CATEGORIES:
             chat_id = config.get_chat_id(category)
             if not chat_id:
@@ -244,19 +243,27 @@ class DailyReporter:
                 await self.telegram.send_daily_report(chat_id, header + report)
                 logger.info("Sent daily report for %s", category)
 
-        # Commodity report (special: price table + VN stock recommendations)
-        commodity_chat_id = config.get_chat_id(CATEGORY_COMMODITY)
-        if commodity_chat_id:
-            report = await self.generate_commodity_report()
-            if report:
-                header = (
-                    f"<b>BANG GIA HANG HOA THE GIOI</b>\n"
-                    f"<i>{datetime.now(VN_TZ).strftime('%d/%m/%Y %H:%M')}</i>\n\n"
-                )
-                await self.telegram.send_daily_report(commodity_chat_id, header + report)
-                logger.info("Sent commodity report")
-
         logger.info("Daily reports complete.")
+
+    async def run_commodity_report(self):
+        """Generate and send commodity price table (6:00 UTC+7)."""
+        logger.info("Starting commodity report generation...")
+
+        commodity_chat_id = config.get_chat_id(CATEGORY_COMMODITY)
+        if not commodity_chat_id:
+            logger.warning("No chat ID for commodity, skipping")
+            return
+
+        report = await self.generate_commodity_report()
+        if report:
+            header = (
+                f"<b>BANG GIA HANG HOA THE GIOI</b>\n"
+                f"<i>{datetime.now(VN_TZ).strftime('%d/%m/%Y %H:%M')}</i>\n\n"
+            )
+            await self.telegram.send_daily_report(commodity_chat_id, header + report)
+            logger.info("Sent commodity report")
+
+        logger.info("Commodity report complete.")
 
     async def close(self):
         if self._session and not self._session.closed:
