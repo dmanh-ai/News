@@ -218,7 +218,7 @@ class NewsSummaryBot:
     # ------------------------------------------------------------------
 
     async def run_daily_report(self):
-        """Generate and send daily reports only."""
+        """Generate and send daily reports only (22:00 UTC+7)."""
         logger.info("=" * 60)
         logger.info("  NEWS SUMMARY BOT - Daily report mode")
         logger.info("=" * 60)
@@ -228,6 +228,19 @@ class NewsSummaryBot:
             return
 
         await self.reporter.run_daily_reports()
+        await self.shutdown()
+
+    async def run_commodity_report(self):
+        """Generate and send commodity price table (6:00 UTC+7)."""
+        logger.info("=" * 60)
+        logger.info("  NEWS SUMMARY BOT - Commodity report mode")
+        logger.info("=" * 60)
+
+        if not config.anthropic_api_key:
+            logger.error("Anthropic API key required for commodity report (Sonnet)")
+            return
+
+        await self.reporter.run_commodity_report()
         await self.shutdown()
 
     # ------------------------------------------------------------------
@@ -362,6 +375,7 @@ class NewsSummaryBot:
 def main():
     once = "--once" in sys.argv
     daily_report = "--daily-report" in sys.argv
+    commodity_report = "--commodity-report" in sys.argv
 
     bot = NewsSummaryBot()
 
@@ -369,6 +383,8 @@ def main():
         asyncio.run(bot.run_once())
     elif daily_report:
         asyncio.run(bot.run_daily_report())
+    elif commodity_report:
+        asyncio.run(bot.run_commodity_report())
     else:
         loop = asyncio.new_event_loop()
 
