@@ -17,6 +17,7 @@ from .config import (
 )
 from .database import NewsDatabase
 from .telegram_bot import TelegramSender
+from .market_data import build_market_data_table
 
 logger = logging.getLogger(__name__)
 
@@ -39,23 +40,22 @@ Viet bao cao ngan gon, tap trung vao 3 phan:
 Viet bang tieng Viet, dung so lieu cu the. Format HTML cho Telegram (dung <b>, <i>).
 Khong dung emoji. Moi phan chi 3-5 dong, di thang vao van de."""
 
-COMMODITY_REPORT_PROMPT = """Ban la chuyen gia phan tich hang hoa the gioi. Ngay {date}, hay viet bang thong ke gia cac loai hang hoa chinh tren the gioi va khuyen nghi cho nha dau tu co phieu Viet Nam.
+COMMODITY_ANALYSIS_PROMPT = """Ban la chuyen gia phan tich thi truong. Dua tren du lieu thi truong thuc te va tin tuc hang hoa ben duoi, hay dua ra NHAN DINH va KHUYEN NGHI ngan gon.
 
+DU LIEU THI TRUONG THUC TE:
+{market_data}
+
+TIN TUC HANG HOA:
 {commodity_news}
 
 {history_context}
 
-YEU CAU:
-1. BANG GIA HANG HOA: Liet ke gia cac loai hang hoa chinh (dau tho WTI/Brent, khong khi tu nhien, than, thep, dong, nhom, cao su, gao, ca phe, duong, dau tuong, ngo, lua mi...). Neu gia hien tai, % thay doi trong ngay/tuan neu co.
+YEU CAU (chi viet phan nhan dinh, KHONG lap lai bang so lieu o tren):
+1. NHAN DINH: Xu huong thi truong hom nay the nao? Diem noi bat?
+2. TAC DONG DEN CO PHIEU VN: Bien dong nao anh huong truc tiep den doanh nghiep VN (thep->HPG/HSG, dau->GAS/PLX, cao su->GVR, phan bon->DPM/DCM, vang->SJC...)
+3. KHUYEN NGHI: Cu the nen mua/ban/theo doi co phieu nao, voi ly do.
 
-2. XU HUONG: Phan tich ngan gon xu huong gia hang hoa dang tang/giam va nguyen nhan (cung cau, dia chinh tri, thoi tiet...)
-
-3. TAC DONG DEN VIET NAM: Nhung mat hang nao anh huong truc tiep den doanh nghiep Viet Nam (thep -> HPG/HSG, dau -> GAS/PLX/BSR, cao su -> GVR/PHR, phan bon -> DPM/DCM, duong -> SBT/QNS...)
-
-4. KHUYEN NGHI CO PHIEU VN: Cu the nen mua/ban/theo doi co phieu nao tren san Viet Nam dua tren bien dong hang hoa, voi ly do ro rang.
-
-Viet bang tieng Viet. Format HTML cho Telegram (dung <b>, <i>).
-Khong dung emoji. Di thang vao so lieu va khuyen nghi."""
+Viet bang tieng Viet. Format HTML (dung <b>, <i>). Khong emoji. Ngan gon 10-15 dong."""
 
 
 class DailyReporter:
@@ -173,55 +173,57 @@ class DailyReporter:
             return None
 
     async def generate_commodity_report(self) -> str | None:
-        """Generate daily commodity price table + VN stock recommendations."""
-        # Gather commodity-related news from all categories
+        """Generate commodity report with real data from vnstock + AI analysis."""
+        # 1. Fetch real market data from dmanh-ai/vnstock repo
+        logger.info("Fetching market data from vnstock repo...")
+        market_data = await build_market_data_table()
+
+        # 2. Gather commodity-related news for AI context
         all_news = self.db.get_today_news()
         commodity_kw = [
-            "oil", "crude", "brent", "wti", "dau tho", "dầu thô",
-            "natural gas", "khi tu nhien", "khí tự nhiên",
-            "coal", "than", "steel", "thep", "thép",
-            "copper", "dong", "đồng", "aluminum", "nhom", "nhôm",
-            "rubber", "cao su", "rice", "gao", "gạo",
-            "coffee", "ca phe", "cà phê", "sugar", "duong", "đường",
-            "soybean", "dau tuong", "đậu tương", "corn", "ngo", "ngô",
-            "wheat", "lua mi", "lúa mì", "palm oil", "dau co",
-            "iron ore", "quang sat", "fertilizer", "phan bon", "phân bón",
-            "commodity", "commodities", "hang hoa", "hàng hóa",
-            "gold", "vang", "vàng", "silver", "bac", "bạc",
+            "oil", "crude", "brent", "wti", "dau tho",
+            "steel", "thep", "copper", "dong", "aluminum", "nhom",
+            "rubber", "cao su", "rice", "gao", "coffee", "ca phe",
+            "sugar", "duong", "wheat", "lua mi", "corn", "ngo",
+            "commodity", "hang hoa", "gold", "vang",
+            "iron ore", "fertilizer", "phan bon",
         ]
-
         commodity_items = []
         for item in all_news:
             text = f"{item.get('title', '')} {item.get('summary', '')}".lower()
-            for kw in commodity_kw:
-                if kw in text:
-                    commodity_items.append(item)
-                    break
+            if any(kw in text for kw in commodity_kw):
+                commodity_items.append(item)
 
-        # Build summaries
         summaries = []
-        for i, item in enumerate(commodity_items[:50], 1):
+        for i, item in enumerate(commodity_items[:30], 1):
             summaries.append(
                 f"{i}. [{item['source']}] {item['title']}\n   {item.get('summary', '')[:200]}"
             )
-
         news_text = "\n".join(summaries) if summaries else "Khong co tin hang hoa hom nay."
+
+        # 3. AI analysis based on real data
         today_str = datetime.now(VN_TZ).strftime("%Y-%m-%d")
         history = self._load_recent_reports(CATEGORY_COMMODITY)
 
-        prompt = COMMODITY_REPORT_PROMPT.format(
-            date=today_str,
+        prompt = COMMODITY_ANALYSIS_PROMPT.format(
+            market_data=market_data,
             commodity_news=news_text,
             history_context=history,
         )
 
         try:
-            report = await self._generate_report_sonnet(prompt)
-            self._save_report(CATEGORY_COMMODITY, report, today_str)
-            return report
+            analysis = await self._generate_report_sonnet(prompt)
         except Exception as e:
-            logger.error("Failed to generate commodity report: %s", e)
-            return None
+            logger.error("Failed to generate commodity analysis: %s", e)
+            analysis = ""
+
+        # 4. Combine: real data table + AI analysis
+        report = market_data
+        if analysis:
+            report += "\n\n" + analysis
+
+        self._save_report(CATEGORY_COMMODITY, report, today_str)
+        return report
 
     async def run_daily_reports(self):
         """Generate and send daily reports for 4 news categories (22:00 UTC+7)."""
